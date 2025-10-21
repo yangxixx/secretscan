@@ -121,6 +121,22 @@ class SensitiveInfoScanner:
                 r'baseUrl\s*[=:]\s*["\'](https?://[^"\']+)["\']',
                 r'server\s*[=:]\s*["\'](https?://[^"\']+)["\']',
             ],
+            '手机号码': [
+                # 中国大陆手机号
+                r'\b1[3-9]\d{9}\b',
+                r'phone\s*[=:]\s*["\'](1[3-9]\d{9})["\']',
+                r'mobile\s*[=:]\s*["\'](1[3-9]\d{9})["\']',
+                r'telephone\s*[=:]\s*["\'](1[3-9]\d{9})["\']',
+                r'cellphone\s*[=:]\s*["\'](1[3-9]\d{9})["\']',
+                r'"phone"\s*:\s*"(1[3-9]\d{9})"',
+                r"'phone'\s*:\s*'(1[3-9]\d{9})'",
+                r'"mobile"\s*:\s*"(1[3-9]\d{9})"',
+                r"'mobile'\s*:\s*'(1[3-9]\d{9})'",
+                # 带国际区号的手机号
+                r'\+\s*86\s*1[3-9]\d{9}',
+                r'\+\s*86\s*-\s*1[3-9]\d{9}',
+                r'\+861[3-9]\d{9}',
+            ],
             '配置文件敏感信息': [
                 r'DATABASE_URL\s*[=:]\s*["\']([^"\']+)["\']',
                 r'REDIS_URL\s*[=:]\s*["\']([^"\']+)["\']',
@@ -148,11 +164,9 @@ class SensitiveInfoScanner:
         """验证是否为真正的敏感信息"""
         # 排除常见的测试值
         test_values = [
-            'test', 'example', 'demo', 'sample', 'dummy', 'null', 'none',
-            'password', '1234', '123456', '12345678', 'admin', 'root',
+            'null', 'none','password', 'api_key', 'token', 
             'localhost', '127.0.0.1', '0.0.0.0', 'example.com',
-            'your_', 'my_', 'placeholder', 'changeme', 'secret',
-            'api_key', 'token', 'key'
+            'your_', 'my_', 'placeholder', 'changeme', 'key'
         ]
         
         text_lower = text.lower()
@@ -168,6 +182,8 @@ class SensitiveInfoScanner:
             return self.is_valid_domain(text)
         elif category == 'URL链接':
             return self.is_valid_url(text)
+        elif category == '手机号码':
+            return self.is_valid_phone(text)
         elif category in ['硬编码密码', 'API密钥/AppID', 'Secret密钥', '访问令牌', '加密密钥']:
             # 对于密钥类信息，检查长度和复杂度
             if len(text) < 8:
@@ -245,6 +261,39 @@ class SensitiveInfoScanner:
             return True
         except:
             return False
+    
+    def is_valid_phone(self, phone):
+        """验证手机号是否有效"""
+        # 清理手机号格式
+        clean_phone = re.sub(r'[\s+\-]', '', phone)
+        
+        # 检查是否是测试手机号
+        test_phones = [
+            '13800138000', '12345678901', '11111111111', '00000000000',
+            '12312345678', '10000000000', '19999999999'
+        ]
+        
+        if clean_phone in test_phones:
+            return False
+        
+        # 验证中国大陆手机号格式
+        if re.match(r'^1[3-9]\d{9}$', clean_phone):
+            # 进一步验证前三位
+            prefix = clean_phone[:3]
+            valid_prefixes = [
+                '130', '131', '132', '133', '134', '135', '136', '137', '138', '139',
+                '145', '147', '149', '150', '151', '152', '153', '155', '156', '157', '158', '159',
+                '165', '166', '167', '170', '171', '172', '173', '174', '175', '176', '177', '178', 
+                '180', '181', '182', '183', '184', '185', '186', '187', '188', '189',
+                '190', '191', '192', '193', '195', '196', '197', '198', '199'
+            ]
+            return prefix in valid_prefixes
+        
+        # 验证带国际区号的手机号
+        if re.match(r'^\+861[3-9]\d{9}$', clean_phone):
+            return True
+            
+        return False
     
     def scan_file(self, file_path):
         """扫描单个文件"""
