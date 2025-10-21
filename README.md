@@ -1,5 +1,6 @@
 # secretscan
 搜索指定文件夹中所有能搜到的敏感信息,我一般用来搜索小程序和app代码
+正则和改进建议都可以提
 # 基本用法
 python scanner.py /path/to/project
 
